@@ -1,0 +1,129 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Instant Real Estate Kit</title>
+  <style>
+    body{margin:0;font-family:ui-sans-serif,system-ui,Segoe UI,Roboto,Helvetica,Arial;background:#0b0f17;color:#eaf0ff}
+    header{padding:32px 16px;text-align:center}
+    h1{margin:0 0 8px;font-size:32px}
+    .sub{color:#9fb3d9}
+    .card{max-width:960px;margin:24px auto;background:#11172a;border:1px solid #1a2442;border-radius:16px;padding:16px}
+    input,button,textarea{font:inherit}
+    .row{display:grid;grid-template-columns:1fr;gap:12px}
+    label{font-size:14px;color:#b8c7ea}
+    input[type=text],textarea{width:100%;padding:10px;border-radius:10px;border:1px solid #253256;background:#0d1324;color:#eaf0ff}
+    .drop{border:2px dashed #2a3a66;border-radius:14px;padding:16px;text-align:center;background:#0d1324}
+    .actions{display:flex;gap:10px;flex-wrap:wrap}
+    .btn{background:#2d6bff;border:none;color:#fff;padding:10px 14px;border-radius:10px;cursor:pointer;font-weight:700}
+    .muted{color:#9fb3d9}
+    .preview{display:flex;gap:8px;flex-wrap:wrap;margin-top:8px}
+    .thumb{width:120px;height:80px;object-fit:cover;border-radius:8px;border:1px solid #2a3a66}
+    .note{font-size:12px;color:#9fb3d9;margin-top:8px}
+    .hidden{display:none}
+    .ok{color:#56d08c}
+    .err{color:#ff6b7a}
+    .switch{display:flex;gap:10px;align-items:center}
+  </style>
+</head>
+<body>
+  <header>
+    <h1>Get Your Listing Kit in 3 Minutes</h1>
+    <div class="sub">Upload photos + address → pay → download MLS copy, brochure PDF, and a short video.</div>
+  </header>
+  <main class="card">
+    <div class="row">
+      <label>Contact Email (for delivery)</label>
+      <input id="email" type="text" placeholder="you@example.com" />
+
+      <label>Property Address</label>
+      <input id="address" type="text" placeholder="123 Maple St, City, ST 00000" />
+
+      <label>Key Details (bed/bath/sqft/renovations, etc.)</label>
+      <textarea id="details" rows="3" placeholder="3 bed · 2 bath · 1,850 sqft · New roof 2024 · Walk to parks"></textarea>
+
+      <label>Photos (5–12 JPG/PNG)</label>
+      <div id="drop" class="drop">
+        <div>Drag & drop or click to select images</div>
+        <input id="file" type="file" accept="image/*" multiple class="hidden" />
+        <div id="preview" class="preview"></div>
+      </div>
+      <div class="note">We’ll enhance images, build the brochure and video, then email your download link.</div>
+
+      <div class="switch"><label><input type="radio" name="mode" value="payment" checked> One-time ($149)</label><label><input type="radio" name="mode" value="subscription"> Subscription ($299/mo)</label></div>
+
+      <div class="actions">
+        <button id="buy" class="btn">Continue to Payment</button>
+        <button id="demo" class="btn" style="background:#2aa198">Run Demo (no charge)</button>
+      </div>
+      <div id="status" class="muted"></div>
+    </div>
+  </main>
+  <script>
+    const email = document.getElementById('email');
+    const address = document.getElementById('address');
+    const details = document.getElementById('details');
+    const fileInput = document.getElementById('file');
+    const drop = document.getElementById('drop');
+    const preview = document.getElementById('preview');
+    const buy = document.getElementById('buy');
+    const demo = document.getElementById('demo');
+    const statusEl = document.getElementById('status');
+
+    let files = [];
+
+    drop.addEventListener('click', () => fileInput.click());
+    drop.addEventListener('dragover', (e) => { e.preventDefault(); drop.style.background = '#0b1122'; });
+    drop.addEventListener('dragleave', () => { drop.style.background = '#0d1324'; });
+    drop.addEventListener('drop', (e)=>{ e.preventDefault(); drop.style.background = '#0d1324'; addFiles(e.dataTransfer.files); });
+    fileInput.addEventListener('change', ()=> addFiles(fileInput.files));
+
+    function addFiles(list){
+      for (const f of list){
+        if (!f.type.startsWith('image/')) continue;
+        files.push(f);
+        const img = document.createElement('img');
+        img.className = 'thumb';
+        img.src = URL.createObjectURL(f);
+        preview.appendChild(img);
+      }
+    }
+
+    buy.addEventListener('click', async ()=>{
+      if (!email.value) return note('Enter email', true);
+      const mode = document.querySelector('input[name="mode"]:checked').value;
+      note('Creating checkout session…');
+      const r = await fetch('/api/create-checkout-session', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ email: email.value, mode }) });
+      const j = await r.json();
+      if (j.url) window.location = j.url; else note('Stripe error: '+(j.message||'unknown'), true);
+    });
+
+    demo.addEventListener('click', async ()=>{
+      if (!email.value || !address.value || files.length<1) return note('Please add email, address, and at least 1 photo.', true);
+      await generate('demo');
+    });
+
+    async function generate(kind){
+      note('Uploading & generating… this takes ~1–2 minutes');
+      const fd = new FormData();
+      fd.append('email', email.value);
+      fd.append('address', address.value);
+      fd.append('details', details.value);
+      for (const f of files) fd.append('photos', f);
+      const session_id = new URL(location.href).searchParams.get('session_id');
+      const qs = new URLSearchParams({ kind, ...(session_id? { session_id } : {}) }).toString();
+      const r = await fetch('/api/generate?'+qs, { method:'POST', body: fd });
+      const j = await r.json().catch(()=>({}));
+      if (j.download){
+        note('Ready! Downloading…');
+        window.location = j.download;
+      } else {
+        note('Generation error: '+(j.message||'unknown'), true);
+      }
+    }
+
+    function note(msg, err){ statusEl.textContent = msg; statusEl.className = err? 'err' : 'ok'; }
+  </script>
+</body>
+</html>

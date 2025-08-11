@@ -1,0 +1,65 @@
+services:
+  - type: web
+    name: ai-re-kit
+    env: node
+    plan: starter
+    region: oregon
+    buildCommand: npm install
+    startCommand: node server.js
+    healthCheckPath: /api/health
+    envVars:
+      - key: NODE_VERSION
+        value: 20
+      - key: PORT
+        value: 10000
+      - key: ORIGIN
+        fromService:
+          name: ai-re-kit
+          type: web
+          property: host
+      - key: STRIPE_SECRET_KEY
+        sync: false
+      - key: STRIPE_PRICE_ONE_TIME
+        sync: false
+      - key: STRIPE_PRICE_SUB_MONTHLY
+        sync: false
+      - key: STRIPE_WEBHOOK_SECRET
+        sync: false
+      - key: OPENAI_API_KEY
+        sync: false
+      - key: SMTP_HOST
+        sync: false
+      - key: SMTP_PORT
+        sync: false
+      - key: SMTP_USER
+        sync: false
+      - key: SMTP_PASS
+        sync: false
+      - key: FROM_EMAIL
+        sync: false
+      - key: AWS_REGION
+        sync: false
+      - key: AWS_ACCESS_KEY_ID
+        sync: false
+      - key: AWS_SECRET_ACCESS_KEY
+        sync: false
+      - key: S3_BUCKET
+        sync: false
+      - key: S3_PREFIX
+        value: re-kits/
+      - key: ADMIN_USER
+        value: admin
+      - key: ADMIN_PASS
+        sync: false
+      - key: DATA_ROOT
+        value: /var/data
+      - key: OUT_DIR
+        value: /var/data/out
+      - key: UP_DIR
+        value: /var/data/uploads
+      - key: DB_PATH
+        value: /var/data/data.db
+    disk:
+      name: data
+      mountPath: /var/data
+      sizeGB: 5

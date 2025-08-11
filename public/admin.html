@@ -1,0 +1,21 @@
+<!doctype html>
+<html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>Admin</title>
+<style>body{font-family:system-ui;margin:16px;background:#0b0f17;color:#eaf0ff} table{border-collapse:collapse;width:100%} td,th{border:1px solid #233;border-radius:4px;padding:6px} th{background:#172031}</style></head>
+<body>
+  <h2>Jobs</h2>
+  <table id="t"><thead><tr><th>id</th><th>email</th><th>address</th><th>status</th><th>kind</th><th>updated</th><th>download</th></tr></thead><tbody></tbody></table>
+<script>
+  async function load(){
+    const r = await fetch('/api/admin/jobs');
+    const j = await r.json();
+    const tb = document.querySelector('#t tbody'); tb.innerHTML = '';
+    for (const row of j.jobs){
+      const tr = document.createElement('tr');
+      const dl = row.s3_key ? `<a href="/download/s3/${row.s3_key}">zip</a>` : '';
+      tr.innerHTML = `<td>${row.id}</td><td>${row.email||''}</td><td>${row.address||''}</td><td>${row.status}</td><td>${row.kind}</td><td>${new Date(row.updated_at).toLocaleString()}</td><td>${dl}</td>`;
+      tb.appendChild(tr);
+    }
+  }
+  load(); setInterval(load, 5000);
+</script>
+</body></html>
